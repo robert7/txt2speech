@@ -4,25 +4,49 @@ const
     //Promise = require('bluebird'),
     //moment = require('moment'),
     textToSpeech = require('@google-cloud/text-to-speech'),
-    util = require('util');
+    util = require('util'),
+    // https://www.npmjs.com/package/optionator
+    optionator = require('optionator');
 
 const PROG_NAME = 'ts';
 
-// https://www.npmjs.com/package/optionator
-const optionator = require('optionator');
+const SECTION_BREAK = 4;
+const CAPTION_BREAK = 2;
+
+function convertToSsml(line, emptyLines) {
+    let breakTime = null;
+    if (emptyLines > 0) {
+        breakTime = CAPTION_BREAK;
+    }
+    if (emptyLines > 1) {
+        breakTime = SECTION_BREAK;
+    }
+
+    const breakAfterMarkup = breakTime ? `<break time="${breakTime}s"/>` : '';
+
+    return `<speak><p>${line}</p>${breakAfterMarkup}</speak>`;
+}
 
 /**
  * Read and process TXT file.
  *
  * @param fileName
+ * @param options
  * @return {Promise}
  */
-const importTxtFile = (fileName) => {
+async function importTxtFile(fileName, options) {
+
+    const {
+        startLine: paramStartLine,
+        endLine: paramEndLine
+    } = options;
+
     return new Promise((resolve, reject) => {
 
         let lineNr = 0;
         result = [];
         let maxLineLength = 0;
+        let emptyLinesBefore = 0;
 
         let stream = fs.createReadStream(fileName)
             // split on new line - regex variant: .pipe(es.split(/(\r?\n)/))
@@ -33,15 +57,35 @@ const importTxtFile = (fileName) => {
 
                     // pause the readstream
                     stream.pause();
+                    line = line.trim();
+
+                    const isEmptyLine = line === '';
 
                     lineNr += 1;
-                    // process line here and call s.resume() when ready
-                    const lineLength = line.length;
-                    if (lineLength > maxLineLength) {
-                        maxLineLength = lineLength;
-                    }
+                    const processLine = (lineNr > paramStartLine || (!paramStartLine))
+                        && (lineNr <= paramEndLine || (!paramEndLine))
+                        && !isEmptyLine;
 
-                    console.log(`line ${lineNr}: ${line}`);
+                    if (processLine) {
+                        // process line here and call s.resume() when ready
+                        const lineLength = line.length;
+                        if (lineLength > maxLineLength) {
+                            maxLineLength = lineLength;
+                        }
+                        const ssml = convertToSsml(line, emptyLinesBefore);
+                        result.push({
+                                id: lineNr,
+                                ssml
+                            }
+                        );
+
+                        console.log(`line ${lineNr}: ${ssml}`);
+                    }
+                    if (isEmptyLine) {
+                        emptyLinesBefore++;
+                    } else {
+                        emptyLinesBefore = 0;
+                    }
 
                     // resume the readstream, possibly from a callback
                     stream.resume();
@@ -66,7 +110,8 @@ const parseCommandLine = function(argv) {
         prepend: `Usage: ${PROG_NAME} [options...]\n`
             + '\n'
             + 'Examples:\n'
-            + '  '
+            + '  ts --listVoices'
+            + '  ts --import abc.txt --startLine=10 --endLine=100'
             + '\n'
             + 'Version 1.0',
         typeAliases: {filename: 'String', directory: 'String'},
@@ -81,6 +126,14 @@ const parseCommandLine = function(argv) {
             type: 'filename',
             description: 'Text file to import.'
         }, {
+            option: 'startLine',
+            type: 'Int',
+            description: 'Line number where conversion should start (first document line has number 1)'
+        }, {
+            option: 'endLine',
+            type: 'Int',
+            description: 'Line number where conversion should end (line with given number is included)'
+        }, {
             option: 'listVoices',
             alias: 'l',
             type: 'Boolean',
@@ -90,8 +143,6 @@ const parseCommandLine = function(argv) {
     });
 
     const options = configuredOptionator.parseArgv(argv);
-    // non option arguments
-    const argsAfterOptions = options._;
     let displayHelpAndQuit = options.help
         || (!options.import && !options.listVoices);
     options.displayHelpAndQuit = displayHelpAndQuit;
@@ -120,6 +171,8 @@ async function listVoices() {
     });
 }
 
+// SSML: https://cloud.google.com/text-to-speech/docs/ssml
+
 async function synthesizeSsml(ssml, outputFile) {
     const textToSpeech = require('@google-cloud/text-to-speech');
 
@@ -137,7 +190,9 @@ async function synthesizeSsml(ssml, outputFile) {
     console.log(`Audio content written to file: ${outputFile}`);
 }
 
-const main = (argv) => {
+const zeroPad = (num, places) => String(num).padStart(places, '0');
+
+async function main(argv) {
     const options = parseCommandLine(argv);
     const {
         displayHelpAndQuit,
@@ -149,19 +204,28 @@ const main = (argv) => {
         process.exit(1);
     }
     if (paramImportFileName) {
-        importTxtFile(paramImportFileName).then(() => {
-            console.log(`Done with ${paramImportFileName}`);
+        const snippets = await importTxtFile(paramImportFileName, options);
+        console.log(`Converted snippets ${JSON.stringify(snippets)}`);
+        snippets.forEach(snippet => {
+            const {
+                id, ssml
+            } = snippet;
+            const idPadded = zeroPad(id,5);
+
+            console.log(`Processing id:${idPadded}, ssml:${ssml}`);
+            synthesizeSsml(ssml, `tmp/output-${idPadded}.mp3`);
         });
+
+        // TODO mp3 concat: https://www.npmjs.com/package/audioconcat
+        console.log(`All done!`);
     }
     if (paramListVoices) {
-        //     listVoices().then(() => {
-        //         console.log(`Done with listing voices..`);
-        //     });
+        listVoices().then(() => {
+            console.log(`Done with listing voices..`);
+        });
     }
 
-    const outputFile = 'tmp/output.mp3';
-    synthesizeSsml('<speak>Hello there.</speak>', outputFile);
-};
+}
 
 main(process.argv);
 
