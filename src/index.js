@@ -1,9 +1,10 @@
 const
     fs = require('fs'),
     es = require('event-stream'),
-    Promise = require('bluebird'),
-    moment = require('moment'),
-    textToSpeech = require('@google-cloud/text-to-speech');
+    //Promise = require('bluebird'),
+    //moment = require('moment'),
+    textToSpeech = require('@google-cloud/text-to-speech'),
+    util = require('util');
 
 const PROG_NAME = 'ts';
 
@@ -102,7 +103,6 @@ const parseCommandLine = function(argv) {
 };
 
 async function listVoices() {
-
     const client = new textToSpeech.TextToSpeechClient();
 
     const [result] = await client.listVoices({});
@@ -118,6 +118,23 @@ async function listVoices() {
             console.log(`    ${languageCode}`);
         });
     });
+}
+
+async function synthesizeSsml(ssml, outputFile) {
+    const textToSpeech = require('@google-cloud/text-to-speech');
+
+    const client = new textToSpeech.TextToSpeechClient();
+
+    const request = {
+        input: {ssml: ssml},
+        voice: {languageCode: 'en-US', ssmlGender: 'FEMALE'},
+        audioConfig: {audioEncoding: 'MP3'}
+    };
+
+    const [response] = await client.synthesizeSpeech(request);
+    const writeFile = util.promisify(fs.writeFile);
+    await writeFile(outputFile, response.audioContent, 'binary');
+    console.log(`Audio content written to file: ${outputFile}`);
 }
 
 const main = (argv) => {
@@ -137,10 +154,13 @@ const main = (argv) => {
         });
     }
     if (paramListVoices) {
-        listVoices().then(() => {
-            console.log(`Done with listing voices..`);
-        });
+        //     listVoices().then(() => {
+        //         console.log(`Done with listing voices..`);
+        //     });
     }
+
+    const outputFile = 'tmp/output.mp3';
+    synthesizeSsml('<speak>Hello there.</speak>', outputFile);
 };
 
 main(process.argv);
