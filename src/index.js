@@ -2,7 +2,8 @@ const
     fs = require('fs'),
     es = require('event-stream'),
     Promise = require('bluebird'),
-    moment = require('moment');
+    moment = require('moment'),
+    textToSpeech = require('@google-cloud/text-to-speech');
 
 const PROG_NAME = 'ts';
 
@@ -63,7 +64,7 @@ const parseCommandLine = function(argv) {
     const configuredOptionator = optionator({
         prepend: `Usage: ${PROG_NAME} [options...]\n`
             + '\n'
-            + 'Processing:\n'
+            + 'Examples:\n'
             + '  '
             + '\n'
             + 'Version 1.0',
@@ -78,6 +79,11 @@ const parseCommandLine = function(argv) {
             alias: 'i',
             type: 'filename',
             description: 'Text file to import.'
+        }, {
+            option: 'listVoices',
+            alias: 'l',
+            type: 'Boolean',
+            description: 'List available voices'
         }
         ]
     });
@@ -85,7 +91,8 @@ const parseCommandLine = function(argv) {
     const options = configuredOptionator.parseArgv(argv);
     // non option arguments
     const argsAfterOptions = options._;
-    let displayHelpAndQuit = options.help || !options.import;
+    let displayHelpAndQuit = options.help
+        || (!options.import && !options.listVoices);
     options.displayHelpAndQuit = displayHelpAndQuit;
 
     if (displayHelpAndQuit) {
@@ -94,19 +101,44 @@ const parseCommandLine = function(argv) {
     return options;
 };
 
+async function listVoices() {
+
+    const client = new textToSpeech.TextToSpeechClient();
+
+    const [result] = await client.listVoices({});
+    const voices = result.voices;
+
+    console.log('Voices:');
+    voices.forEach(voice => {
+        console.log(`Name: ${voice.name}`);
+        console.log(`  SSML Voice Gender: ${voice.ssmlGender}`);
+        console.log(`  Natural Sample Rate Hertz: ${voice.naturalSampleRateHertz}`);
+        console.log('  Supported languages:');
+        voice.languageCodes.forEach(languageCode => {
+            console.log(`    ${languageCode}`);
+        });
+    });
+}
+
 const main = (argv) => {
     const options = parseCommandLine(argv);
     const {
         displayHelpAndQuit,
-        import: importFileName
+        listVoices: paramListVoices,
+        import: paramImportFileName
     } = options;
 
     if (displayHelpAndQuit) {
         process.exit(1);
     }
-    if (importFileName) {
-        importTxtFile(importFileName).then(() => {
-            console.log(`done with ${importFileName}`);
+    if (paramImportFileName) {
+        importTxtFile(paramImportFileName).then(() => {
+            console.log(`Done with ${paramImportFileName}`);
+        });
+    }
+    if (paramListVoices) {
+        listVoices().then(() => {
+            console.log(`Done with listing voices..`);
         });
     }
 };
