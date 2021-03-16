@@ -7,9 +7,9 @@ Based on samples in [googleapis/nodejs-text-to-speech](https://github.com/google
 
 As it is a kind of "MVP" for my personal use case, parts of a quite hardcoded.
 
-It works only with Google Cloud account with activated billing,but there is a "free tier". Currently, 
+It works only with Google Cloud account with activated billing, but there is a "free tier". Currently, 
 1M of input text per month should be free. So there will be no charge until some amount 
-of processed data. for my use case there is quite a lot free. 
+of processed data. For my use case there is quite a lot free. 
 
 See `--help` option for description of parameters.
 
