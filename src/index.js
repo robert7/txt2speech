@@ -1,3 +1,8 @@
+
+// TODO escape xml chars in SSML lines
+// TODO handle lines >5000 chars
+
+
 const
     fs = require('fs'),
     es = require('event-stream'),
@@ -14,10 +19,21 @@ const PROG_NAME = 'ts';
 const SECTION_BREAK = 4;
 const CAPTION_BREAK = 2;
 
-// !! TODO escape xml chars
+// API currently now limits the requests "ssml text" size to 5000 bytes; but we take lower value
+const MAX_SSML_BLOCK_LEN = 1000;
 
-function convertToSsml(line, emptyLines) {
+/**
+ * Convert incoming text line to SSML content (without adding "speak" wrapper").
+ * There is a little heuristic based on empty lines, which could improve the narration a bit.
+ *
+ * @param line Incoming trext line.
+ * @param emptyLines Empty line count *before* this line.
+ *
+ * @returns {string}
+ */
+function convertToSsmlContent(line, emptyLines) {
     let breakTime = null;
+    // make a little pause based on count of empty lines before; so basically we guess the "headers"
     if (emptyLines > 0) {
         breakTime = CAPTION_BREAK;
     }
@@ -27,7 +43,49 @@ function convertToSsml(line, emptyLines) {
 
     const breakAfterMarkup = breakTime ? `<break time="${breakTime}s"/>` : '';
 
-    return `<speak><p>${line}</p>${breakAfterMarkup}</speak>`;
+    const sentences = line.split('. ');
+    if (Array.isArray(sentences) && (sentences.length > 1)) {
+        const sentencesSsml = sentences.map(sentence => `<s>${sentence}</s>`);
+        line = sentencesSsml.join('');
+    }
+
+    return `<p>${line}</p>${breakAfterMarkup}`;
+}
+
+/**
+ * Just add the "speak" wrapper.
+ * @param ssmlContent
+ * @returns {string}
+ */
+function convertToSsmlAddSpeak(ssmlContent) {
+    return `<speak>${ssmlContent}</speak>`;
+}
+
+/**
+ * Add one SSML content block to result list.
+ *
+ * @param blocks List of result blocks.
+ * @param blockId New block ID (taken from line number)
+ * @param ssml Incoming SSML content (currently without the "speak" wrapper).
+ */
+function addSsmlContentToResult(blocks, blockId, ssml) {
+    if (blocks.length > 0) {
+        const lastResultBlock = blocks[blocks.length - 1];
+        const lastSsmlContent = lastResultBlock.ssml;
+        // if the size is smaller then MAX,just append the text
+        // this decreases the count of resulting blocks a bit (and thus less requests and less "mp3" files)
+        if ((lastSsmlContent.length + ssml.length) < MAX_SSML_BLOCK_LEN) {
+            lastResultBlock.ssml = lastResultBlock.ssml + ssml;
+            return;
+        }
+    }
+
+    // else append new block
+    blocks.push({
+            id: blockId,
+            ssml
+        }
+    );
 }
 
 /**
@@ -47,7 +105,7 @@ async function importTxtFile(fileName, options) {
     return new Promise((resolve, reject) => {
 
         let lineNr = 0;
-        result = [];
+        blocks = [];
         let maxLineLength = 0;
         let emptyLinesBefore = 0;
 
@@ -75,12 +133,8 @@ async function importTxtFile(fileName, options) {
                         if (lineLength > maxLineLength) {
                             maxLineLength = lineLength;
                         }
-                        const ssml = convertToSsml(line, emptyLinesBefore);
-                        result.push({
-                                id: lineNr,
-                                ssml
-                            }
-                        );
+                        const ssml = convertToSsmlContent(line, emptyLinesBefore);
+                        addSsmlContentToResult(blocks, lineNr, ssml);
 
                         console.log(`line ${lineNr}: ${ssml}`);
                     }
@@ -97,11 +151,16 @@ async function importTxtFile(fileName, options) {
                     reject();
                 }).on('end', function() {
                     console.log(`Read entire file ${fileName} (${lineNr} lines; max.line length ${maxLineLength})`);
-                    resolve(result);
+                    // add "speak" wrapper
+                    blocks.forEach(block =>{
+                        block.ssml = convertToSsmlAddSpeak(block.ssml);
+                    })
+
+                    resolve(blocks);
                 })
             );
     });
-};
+}
 
 /**
  * Parse commandline options
@@ -218,19 +277,25 @@ async function main(argv) {
         synth: paramSynth
     } = options;
 
+    // TODO generate output filename from import filename
+    // const mainCardsOutputFile = mainFlashCardFile.replace(/\.csv/, '-new.csv');
+    // if ((mainCardsOutputFile === mainFlashCardFile) || (outputEPUBFile === mainFlashCardFile)) {
+    //     console.log('Failed to generate output filenames (input filename should have extension ".csv"');
+    // }
+
     if (displayHelpAndQuit) {
         process.exit(1);
     }
     if (paramImportFileName) {
-        const snippets = await importTxtFile(paramImportFileName, options);
-        console.log(`Converted snippets ${JSON.stringify(snippets)}`);
+        const blocks = await importTxtFile(paramImportFileName, options);
+        console.log(`Converted snippets ${JSON.stringify(blocks)}`);
 
-        const mp3Files=[];
+        const mp3Files = [];
         const writeFile = util.promisify(fs.writeFile);
-        for (const snippet of snippets) {
+        for (const block of blocks) {
             const {
                 id, ssml
-            } = snippet;
+            } = block;
             const idPadded = zeroPad(id, 5);
 
             console.log(`Processing id:${idPadded}, ssml:${ssml}`);
@@ -246,7 +311,7 @@ async function main(argv) {
             }
         }
         // alternative mp3 concat: https://www.npmjs.com/package/audioconcat
-        const ffmpegLine=`ffmpeg -i "concat:${mp3Files.join('|')}" -acodec copy tmp/out.mp3`;
+        const ffmpegLine = `ffmpeg -i "concat:${mp3Files.join('|')}" -acodec copy tmp/out.mp3`;
         console.log(ffmpegLine);
 
         console.log(`All done!`);
