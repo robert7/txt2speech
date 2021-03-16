@@ -3,6 +3,7 @@ const
     es = require('event-stream'),
     //Promise = require('bluebird'),
     //moment = require('moment'),
+    // https://www.npmjs.com/package/@google-cloud/text-to-speech
     textToSpeech = require('@google-cloud/text-to-speech'),
     util = require('util'),
     // https://www.npmjs.com/package/optionator
@@ -12,6 +13,8 @@ const PROG_NAME = 'ts';
 
 const SECTION_BREAK = 4;
 const CAPTION_BREAK = 2;
+
+// !! TODO escape xml chars
 
 function convertToSsml(line, emptyLines) {
     let breakTime = null;
@@ -110,8 +113,11 @@ const parseCommandLine = function(argv) {
         prepend: `Usage: ${PROG_NAME} [options...]\n`
             + '\n'
             + 'Examples:\n'
-            + '  ts --listVoices'
-            + '  ts --import abc.txt --startLine=10 --endLine=100'
+            + '  ts --listVoices\n'
+            + '  ts --import abc.txt --startLine=10 --endLine=100\n'
+            + '\n'
+            + 'As invoking --synth may involve costs (if you are over the free tier), it may be reasonable for tests\n'
+            + 'to limit the processing scope.'
             + '\n'
             + 'Version 1.0',
         typeAliases: {filename: 'String', directory: 'String'},
@@ -128,7 +134,7 @@ const parseCommandLine = function(argv) {
         }, {
             option: 'startLine',
             type: 'Int',
-            description: 'Line number where conversion should start (first document line has number 1)'
+            description: 'Line number where conversion should start (first document line has number 1).'
         }, {
             option: 'endLine',
             type: 'Int',
@@ -138,6 +144,10 @@ const parseCommandLine = function(argv) {
             alias: 'l',
             type: 'Boolean',
             description: 'List available voices'
+        }, {
+            option: 'synth',
+            type: 'Boolean',
+            description: 'Voice synthesis. This will generate mp3 files.'
         }
         ]
     });
@@ -174,14 +184,21 @@ async function listVoices() {
 // SSML: https://cloud.google.com/text-to-speech/docs/ssml
 
 async function synthesizeSsml(ssml, outputFile) {
-    const textToSpeech = require('@google-cloud/text-to-speech');
-
     const client = new textToSpeech.TextToSpeechClient();
 
     const request = {
-        input: {ssml: ssml},
-        voice: {languageCode: 'en-US', ssmlGender: 'FEMALE'},
-        audioConfig: {audioEncoding: 'MP3'}
+        input: {ssml},
+        // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#VoiceSelectionParams
+        voice: {
+            languageCode: 'en-US',
+            ssmlGender: 'FEMALE',
+            name: 'en-US-Wavenet-C'
+        },
+        // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#AudioConfig
+        audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate: 0.8
+        }
     };
 
     const [response] = await client.synthesizeSpeech(request);
@@ -197,7 +214,8 @@ async function main(argv) {
     const {
         displayHelpAndQuit,
         listVoices: paramListVoices,
-        import: paramImportFileName
+        import: paramImportFileName,
+        synth: paramSynth
     } = options;
 
     if (displayHelpAndQuit) {
@@ -206,19 +224,34 @@ async function main(argv) {
     if (paramImportFileName) {
         const snippets = await importTxtFile(paramImportFileName, options);
         console.log(`Converted snippets ${JSON.stringify(snippets)}`);
-        snippets.forEach(snippet => {
+
+        const mp3Files=[];
+        const writeFile = util.promisify(fs.writeFile);
+        for (const snippet of snippets) {
             const {
                 id, ssml
             } = snippet;
-            const idPadded = zeroPad(id,5);
+            const idPadded = zeroPad(id, 5);
 
             console.log(`Processing id:${idPadded}, ssml:${ssml}`);
-            synthesizeSsml(ssml, `tmp/output-${idPadded}.mp3`);
-        });
+            const ssmlFn = `tmp/output-${idPadded}.ssml`;
+            await writeFile(ssmlFn, ssml);
+            const mp3Fn = `tmp/output-${idPadded}.mp3`;
+            mp3Files.push(mp3Fn);
 
-        // TODO mp3 concat: https://www.npmjs.com/package/audioconcat
+            if (paramSynth) {
+                // we could to the synthesis in parallel, but for now make it simple
+                // and do it in sync
+                await synthesizeSsml(ssml, mp3Fn);
+            }
+        }
+        // alternative mp3 concat: https://www.npmjs.com/package/audioconcat
+        const ffmpegLine=`ffmpeg -i "concat:${mp3Files.join('|')}" -acodec copy tmp/out.mp3`;
+        console.log(ffmpegLine);
+
         console.log(`All done!`);
     }
+
     if (paramListVoices) {
         listVoices().then(() => {
             console.log(`Done with listing voices..`);
