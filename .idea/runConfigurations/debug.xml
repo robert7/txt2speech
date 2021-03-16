@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="debug" type="NodeJSConfigurationType" application-parameters="--import tmp/a.txt --startLine 10 --endLine 50" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
+  <configuration default="false" name="debug" type="NodeJSConfigurationType" application-parameters="--import tmp/a.txt --startLine 651 --endLine 670 --synth" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
     <envs>
       <env name="GOOGLE_APPLICATION_CREDENTIALS" value="$USER_HOME$/rss-learning-9e35fa1cd2de.json" />
     </envs>

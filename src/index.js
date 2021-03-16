@@ -1,7 +1,5 @@
-
 // TODO escape xml chars in SSML lines
 // TODO handle lines >5000 chars
-
 
 const
     fs = require('fs'),
@@ -12,7 +10,8 @@ const
     textToSpeech = require('@google-cloud/text-to-speech'),
     util = require('util'),
     // https://www.npmjs.com/package/optionator
-    optionator = require('optionator');
+    optionator = require('optionator'),
+    audioconcat = require('audioconcat');
 
 const PROG_NAME = 'ts';
 
@@ -152,9 +151,9 @@ async function importTxtFile(fileName, options) {
                 }).on('end', function() {
                     console.log(`Read entire file ${fileName} (${lineNr} lines; max.line length ${maxLineLength})`);
                     // add "speak" wrapper
-                    blocks.forEach(block =>{
+                    blocks.forEach(block => {
                         block.ssml = convertToSsmlAddSpeak(block.ssml);
-                    })
+                    });
 
                     resolve(blocks);
                 })
@@ -288,7 +287,7 @@ async function main(argv) {
     }
     if (paramImportFileName) {
         const blocks = await importTxtFile(paramImportFileName, options);
-        console.log(`Converted snippets ${JSON.stringify(blocks)}`);
+        console.log(`Converted SSML blocks ${JSON.stringify(blocks)}`);
 
         const mp3Files = [];
         const writeFile = util.promisify(fs.writeFile);
@@ -310,9 +309,22 @@ async function main(argv) {
                 await synthesizeSsml(ssml, mp3Fn);
             }
         }
-        // alternative mp3 concat: https://www.npmjs.com/package/audioconcat
-        const ffmpegLine = `ffmpeg -i "concat:${mp3Files.join('|')}" -acodec copy tmp/out.mp3`;
-        console.log(ffmpegLine);
+
+        if (paramSynth) {
+            // mp3 concat (using ffmpeg): https://www.npmjs.com/package/audioconcat
+            audioconcat(mp3Files)
+                .concat('tmp/out.mp3')
+                .on('start', function(command) {
+                    console.log('ffmpeg process started:', command);
+                })
+                .on('error', function(err, stdout, stderr) {
+                    console.error('Error:', err);
+                    console.error('ffmpeg stderr:', stderr);
+                })
+                .on('end', function() {
+                    console.error('Audio created');
+                });
+        }
 
         console.log(`All done!`);
     }
