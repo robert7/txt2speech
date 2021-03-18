@@ -18,6 +18,10 @@ const PROG_NAME = 'ts';
 const SECTION_BREAK = 4;
 const CAPTION_BREAK = 2;
 
+const TXT_EXTENSION = '.txt';
+const MP3_EXTENSION = '.mp3';
+const SSML_EXTENSION = '.ssml';
+
 // API currently now limits the requests "ssml text" size to 5000 bytes; but we take lower value
 const MAX_SSML_BLOCK_LEN = 1000;
 
@@ -267,6 +271,27 @@ async function synthesizeSsml(ssml, outputFile) {
 
 const zeroPad = (num, places) => String(num).padStart(places, '0');
 
+/**
+ * Concat passed mp3 files into result file.
+ * @param mp3Files Array with mp3's to merge
+ * @param concatedMp3Filename Name for concatenated mp3
+ */
+function concatMp3Files(mp3Files, concatedMp3Filename) {
+    // mp3 concat (using ffmpeg): https://www.npmjs.com/package/audioconcat
+    audioconcat(mp3Files)
+        .concat(concatedMp3Filename)
+        .on('start', function(command) {
+            console.log('ffmpeg process started:', command);
+        })
+        .on('error', function(err, stdout, stderr) {
+            console.error('Error:', err);
+            console.error('ffmpeg stderr:', stderr);
+        })
+        .on('end', function() {
+            console.error('Audio created');
+        });
+}
+
 async function main(argv) {
     const options = parseCommandLine(argv);
     const {
@@ -286,6 +311,13 @@ async function main(argv) {
         process.exit(1);
     }
     if (paramImportFileName) {
+        if (!paramImportFileName.endsWith(TXT_EXTENSION)) {
+            console.log(`Error: it is expected that the filename to be imported (${paramImportFileName}) ".txt" extension has...`);
+            return;
+        }
+
+        const filenameBase = paramImportFileName.substr(0, paramImportFileName.length - TXT_EXTENSION.length);
+
         const blocks = await importTxtFile(paramImportFileName, options);
         console.log(`Converted SSML blocks ${JSON.stringify(blocks)}`);
 
@@ -298,9 +330,9 @@ async function main(argv) {
             const idPadded = zeroPad(id, 5);
 
             console.log(`Processing id:${idPadded}, ssml:${ssml}`);
-            const ssmlFn = `tmp/output-${idPadded}.ssml`;
+            const ssmlFn = `${filenameBase}-${idPadded}${SSML_EXTENSION}`;
             await writeFile(ssmlFn, ssml);
-            const mp3Fn = `tmp/output-${idPadded}.mp3`;
+            const mp3Fn = `${filenameBase}-${idPadded}${MP3_EXTENSION}`;
             mp3Files.push(mp3Fn);
 
             if (paramSynth) {
@@ -311,19 +343,7 @@ async function main(argv) {
         }
 
         if (paramSynth) {
-            // mp3 concat (using ffmpeg): https://www.npmjs.com/package/audioconcat
-            audioconcat(mp3Files)
-                .concat('tmp/out.mp3')
-                .on('start', function(command) {
-                    console.log('ffmpeg process started:', command);
-                })
-                .on('error', function(err, stdout, stderr) {
-                    console.error('Error:', err);
-                    console.error('ffmpeg stderr:', stderr);
-                })
-                .on('end', function() {
-                    console.error('Audio created');
-                });
+            concatMp3Files(mp3Files, `${filenameBase}${MP3_EXTENSION}`);
         }
 
         console.log(`All done!`);
