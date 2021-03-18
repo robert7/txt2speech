@@ -208,6 +208,12 @@ const parseCommandLine = function(argv) {
             option: 'synth',
             type: 'Boolean',
             description: 'Voice synthesis. This will generate mp3 files.'
+        }, {
+            option: 'remove',
+            type: 'Boolean',
+            description: 'skip removing intermediate files at the end (*.ssml and *.mp3). If "remove" is active,\n'
+                + 'files are only removed of --synth went well',
+            default: 'true'
         }
         ]
     });
@@ -231,6 +237,7 @@ async function main(argv) {
         displayHelpAndQuit,
         listVoices: paramListVoices,
         import: paramImportFileName,
+        remove: paramRemove,
         synth: paramSynth
     } = options;
 
@@ -249,6 +256,7 @@ async function main(argv) {
         console.log(`Converted SSML blocks ${JSON.stringify(blocks)}`);
 
         const mp3Files = [];
+        const ssmlFiles = [];
         const writeFile = util.promisify(fs.writeFile);
         for (const block of blocks) {
             const {
@@ -259,6 +267,7 @@ async function main(argv) {
             console.log(`Processing id:${idPadded}, ssml:${ssml}`);
             const ssmlFn = `${filenameBase}-${idPadded}${SSML_EXTENSION}`;
             await writeFile(ssmlFn, ssml);
+            ssmlFiles.push(ssmlFn);
             const mp3Fn = `${filenameBase}-${idPadded}${MP3_EXTENSION}`;
             mp3Files.push(mp3Fn);
 
@@ -270,7 +279,15 @@ async function main(argv) {
         }
 
         if (paramSynth) {
-            concatMp3Files(mp3Files, `${filenameBase}${MP3_EXTENSION}`);
+
+            const concatOK = await concatMp3Files(mp3Files, `${filenameBase}${MP3_EXTENSION}`);
+            if (!concatOK) {
+                console.log('concat failed');
+            }
+            if (concatOK && paramRemove) {
+                console.log(`About to remove intermediate files..`);
+                mp3Files.concat(ssmlFiles).forEach(file => fs.unlinkSync(file));
+            }
         }
 
         console.log(`All done!`);
