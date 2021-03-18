@@ -10,15 +10,11 @@ exports.listVoices = async function listVoices() {
     const [result] = await client.listVoices({});
     const voices = result.voices;
 
-    console.log('Voices:');
+    voices.sort((a,b) => (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0));
+
     voices.forEach(voice => {
-        console.log(`Name: ${voice.name}`);
-        console.log(`  SSML Voice Gender: ${voice.ssmlGender}`);
-        console.log(`  Natural Sample Rate Hertz: ${voice.naturalSampleRateHertz}`);
-        console.log('  Supported languages:');
-        voice.languageCodes.forEach(languageCode => {
-            console.log(`    ${languageCode}`);
-        });
+        const languagesStr = voice.languageCodes.join(' ')
+        console.log(`${voice.name}, ${voice.ssmlGender}, ${voice.naturalSampleRateHertz} Hz, ${languagesStr}`);
     });
 };
 
