@@ -1,17 +1,15 @@
 // TODO escape xml chars in SSML lines
 // TODO handle lines >5000 chars
 
+const {listVoices, synthesizeSsml} = require('./gcpTextToSpeech'),
+    {concatMp3Files} = require('./mp3Util');
+
 const
     fs = require('fs'),
     es = require('event-stream'),
-    //Promise = require('bluebird'),
-    //moment = require('moment'),
-    // https://www.npmjs.com/package/@google-cloud/text-to-speech
-    textToSpeech = require('@google-cloud/text-to-speech'),
     util = require('util'),
     // https://www.npmjs.com/package/optionator
-    optionator = require('optionator'),
-    audioconcat = require('audioconcat');
+    optionator = require('optionator');
 
 const PROG_NAME = 'ts';
 
@@ -225,72 +223,7 @@ const parseCommandLine = function(argv) {
     return options;
 };
 
-async function listVoices() {
-    const client = new textToSpeech.TextToSpeechClient();
-
-    const [result] = await client.listVoices({});
-    const voices = result.voices;
-
-    console.log('Voices:');
-    voices.forEach(voice => {
-        console.log(`Name: ${voice.name}`);
-        console.log(`  SSML Voice Gender: ${voice.ssmlGender}`);
-        console.log(`  Natural Sample Rate Hertz: ${voice.naturalSampleRateHertz}`);
-        console.log('  Supported languages:');
-        voice.languageCodes.forEach(languageCode => {
-            console.log(`    ${languageCode}`);
-        });
-    });
-}
-
-// SSML: https://cloud.google.com/text-to-speech/docs/ssml
-
-async function synthesizeSsml(ssml, outputFile) {
-    const client = new textToSpeech.TextToSpeechClient();
-
-    const request = {
-        input: {ssml},
-        // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#VoiceSelectionParams
-        voice: {
-            languageCode: 'en-US',
-            ssmlGender: 'FEMALE',
-            name: 'en-US-Wavenet-C'
-        },
-        // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#AudioConfig
-        audioConfig: {
-            audioEncoding: 'MP3',
-            speakingRate: 0.8
-        }
-    };
-
-    const [response] = await client.synthesizeSpeech(request);
-    const writeFile = util.promisify(fs.writeFile);
-    await writeFile(outputFile, response.audioContent, 'binary');
-    console.log(`Audio content written to file: ${outputFile}`);
-}
-
 const zeroPad = (num, places) => String(num).padStart(places, '0');
-
-/**
- * Concat passed mp3 files into result file.
- * @param mp3Files Array with mp3's to merge
- * @param concatedMp3Filename Name for concatenated mp3
- */
-function concatMp3Files(mp3Files, concatedMp3Filename) {
-    // mp3 concat (using ffmpeg): https://www.npmjs.com/package/audioconcat
-    audioconcat(mp3Files)
-        .concat(concatedMp3Filename)
-        .on('start', function(command) {
-            console.log('ffmpeg process started:', command);
-        })
-        .on('error', function(err, stdout, stderr) {
-            console.error('Error:', err);
-            console.error('ffmpeg stderr:', stderr);
-        })
-        .on('end', function() {
-            console.error('Audio created');
-        });
-}
 
 async function main(argv) {
     const options = parseCommandLine(argv);
@@ -300,12 +233,6 @@ async function main(argv) {
         import: paramImportFileName,
         synth: paramSynth
     } = options;
-
-    // TODO generate output filename from import filename
-    // const mainCardsOutputFile = mainFlashCardFile.replace(/\.csv/, '-new.csv');
-    // if ((mainCardsOutputFile === mainFlashCardFile) || (outputEPUBFile === mainFlashCardFile)) {
-    //     console.log('Failed to generate output filenames (input filename should have extension ".csv"');
-    // }
 
     if (displayHelpAndQuit) {
         process.exit(1);
