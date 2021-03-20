@@ -124,7 +124,7 @@ async function importTxtFile(fileName, options) {
                     const isEmptyLine = line === '';
 
                     lineNr += 1;
-                    const processLine = (lineNr > paramStartLine || (!paramStartLine))
+                    const processLine = (lineNr >= paramStartLine || (!paramStartLine))
                         && (lineNr <= paramEndLine || (!paramEndLine))
                         && !isEmptyLine;
 
@@ -174,18 +174,24 @@ const parseCommandLine = function(argv) {
             + '\n'
             + 'Examples:\n'
             + '  ts --listVoices\n'
-            + '  ts --import abc.txt --startLine=10 --endLine=100\n'
+            + '  ts --import abc.txt --startLine 10 --endLine 100\n'
+            + '  ts --import tmp/a.txt --startLine 10  --endLine 12 --voice "en-US-Standard-A, MALE, en-US" --synth\n'
             + '\n'
             + 'As invoking --synth may involve costs (if you are over the free tier), it may be reasonable for tests\n'
             + 'to limit the processing scope.'
             + '\n'
             + 'Version 1.0',
-        typeAliases: {filename: 'String', directory: 'String'},
+        typeAliases: {filename: 'String', voice: 'String', rate: 'Number'},
         options: [{
             option: 'help',
             alias: 'h',
             type: 'Boolean',
             description: 'Display help.'
+        }, {
+            option: 'listVoices',
+            alias: 'l',
+            type: 'Boolean',
+            description: 'List available voices.\n'
         }, {
             option: 'import',
             alias: 'i',
@@ -198,22 +204,26 @@ const parseCommandLine = function(argv) {
         }, {
             option: 'endLine',
             type: 'Int',
-            description: 'Line number where conversion should end (line with given number is included)'
-        }, {
-            option: 'listVoices',
-            alias: 'l',
-            type: 'Boolean',
-            description: 'List available voices'
-        }, {
-            option: 'synth',
-            type: 'Boolean',
-            description: 'Voice synthesis. This will generate mp3 files.'
+            description: 'Line number where conversion should end (line with given number is included).'
         }, {
             option: 'remove',
             type: 'Boolean',
             description: 'skip removing intermediate files at the end (*.ssml and *.mp3). If "remove" is active,\n'
-                + 'files are only removed of --synth went well',
+                + 'files are only removed of --synth went well.',
             default: 'true'
+        }, {
+            option: 'voice',
+            type: 'voice',
+            description: 'Voice to use (as returned by --listVoices). E.g.: "en-US-Wavenet-D, MALE, en-US"\n' +
+                'You can play with voices at Google demo: https://cloud.google.com/text-to-speech#section-2'
+        }, {
+            option: 'speakingRate',
+            type: 'rate',
+            description: 'Speaking rate. Default: "0.8".'
+        }, {
+            option: 'synth',
+            type: 'Boolean',
+            description: 'Voice synthesis. This will generate mp3 files.'
         }
         ]
     });
@@ -231,15 +241,39 @@ const parseCommandLine = function(argv) {
 
 const zeroPad = (num, places) => String(num).padStart(places, '0');
 
+const EXPECTED_VOICE_PARTS = 3;
+
+function parseVoice(paramVoice) {
+    const paramVoiceParsed = (typeof paramVoice === 'string') ? paramVoice.split(',') : undefined;
+    if (Array.isArray(paramVoiceParsed) && (paramVoiceParsed.length === EXPECTED_VOICE_PARTS)) {
+        return {
+            name: paramVoiceParsed[0].trim(),
+            ssmlGender: paramVoiceParsed[1].trim(),
+            languageCode: paramVoiceParsed[2].trim()
+        };
+    }
+}
+
+function unlinkIfExists(filename) {
+    if (!fs.existsSync(filename)) {
+        return;
+    }
+
+    fs.unlinkSync(filename);
+}
+
 async function main(argv) {
     const options = parseCommandLine(argv);
     const {
         displayHelpAndQuit,
         listVoices: paramListVoices,
         import: paramImportFileName,
+        voice: paramVoice,
+        speakingRate: paramSpeakingRate,
         remove: paramRemove,
         synth: paramSynth
     } = options;
+    const paramVoiceParsed = parseVoice(paramVoice);
 
     if (displayHelpAndQuit) {
         process.exit(1);
@@ -266,27 +300,34 @@ async function main(argv) {
 
             console.log(`Processing id:${idPadded}, ssml:${ssml}`);
             const ssmlFn = `${filenameBase}-${idPadded}${SSML_EXTENSION}`;
+            unlinkIfExists(ssmlFn);
+
             await writeFile(ssmlFn, ssml);
             ssmlFiles.push(ssmlFn);
             const mp3Fn = `${filenameBase}-${idPadded}${MP3_EXTENSION}`;
+            unlinkIfExists(mp3Fn);
+
             mp3Files.push(mp3Fn);
 
             if (paramSynth) {
                 // we could to the synthesis in parallel, but for now make it simple
                 // and do it in sync
-                await synthesizeSsml(ssml, mp3Fn);
+                await synthesizeSsml(ssml, mp3Fn, paramVoiceParsed, paramSpeakingRate);
             }
         }
 
         if (paramSynth) {
+            const resultMp3 = `${filenameBase}${MP3_EXTENSION}`;
+            unlinkIfExists(resultMp3);
 
-            const concatOK = await concatMp3Files(mp3Files, `${filenameBase}${MP3_EXTENSION}`);
+
+            const concatOK = await concatMp3Files(mp3Files, resultMp3);
             if (!concatOK) {
                 console.log('concat failed');
             }
             if (concatOK && paramRemove) {
                 console.log(`About to remove intermediate files..`);
-                mp3Files.concat(ssmlFiles).forEach(file => fs.unlinkSync(file));
+                mp3Files.concat(ssmlFiles).forEach(file => unlinkIfExists(file));
             }
         }
 
