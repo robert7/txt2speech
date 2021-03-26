@@ -5,7 +5,7 @@ const audioconcat = require('audioconcat');
  * @param mp3Files Array with mp3's to merge
  * @param concatedMp3Filename Name for concatenated mp3
  *
- * @return tromise resolves to true on OK, and to false on failure
+ * @return promise resolves to true on OK, and to false on failure
  */
 exports.concatMp3Files = function concatMp3Files(mp3Files, concatedMp3Filename) {
     return new Promise((resolve, reject) => {

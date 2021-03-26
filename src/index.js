@@ -222,6 +222,7 @@ const parseCommandLine = function(argv) {
             description: 'Speaking rate. Default: "0.8".'
         }, {
             option: 'synth',
+            alias: 's',
             type: 'Boolean',
             description: 'Voice synthesis. This will generate mp3 files.'
         }
