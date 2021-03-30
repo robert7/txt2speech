@@ -175,10 +175,10 @@ const parseCommandLine = function(argv) {
             + 'Examples:\n'
             + '  ts --listVoices\n'
             + '  ts --import abc.txt --startLine 10 --endLine 100\n'
-            + '  ts --import tmp/a.txt --startLine 10  --endLine 12 --voice "en-US-Standard-A, MALE, en-US" --synth\n'
+            + '  ts --import tmp/a.txt --startLine 10  --endLine 12 --voice "en-US-Standard-A, MALE, en-US" --audio\n'
             + '\n'
-            + 'As invoking --synth may involve costs (if you are over the free tier), it may be reasonable for tests\n'
-            + 'to limit the processing scope.'
+            + 'As invoking --audio may involve costs (if you are over the free tier), it may be reasonable for tests\n'
+            + 'to limit the processing scope. As of 2021-03 about 1M of input text is free, which is quite a lot.'
             + '\n'
             + 'Version 1.0',
         typeAliases: {filename: 'String', voice: 'String', rate: 'Number'},
@@ -209,7 +209,7 @@ const parseCommandLine = function(argv) {
             option: 'remove',
             type: 'Boolean',
             description: 'skip removing intermediate files at the end (*.ssml and *.mp3). If "remove" is active,\n'
-                + 'files are only removed of --synth went well.',
+                + 'files are only removed of --audio went well.',
             default: 'true'
         }, {
             option: 'voice',
@@ -221,10 +221,10 @@ const parseCommandLine = function(argv) {
             type: 'rate',
             description: 'Speaking rate. Default: "0.8".'
         }, {
-            option: 'synth',
-            alias: 's',
+            option: 'audio',
+            alias: 'a',
             type: 'Boolean',
-            description: 'Voice synthesis. This will generate mp3 files.'
+            description: 'Voice synthesis (generate audio version). This will narrate the TXT file into mp3.'
         }
         ]
     });
@@ -272,7 +272,7 @@ async function main(argv) {
         voice: paramVoice,
         speakingRate: paramSpeakingRate,
         remove: paramRemove,
-        synth: paramSynth
+        audio: paramAudio
     } = options;
     const paramVoiceParsed = parseVoice(paramVoice);
 
@@ -310,14 +310,14 @@ async function main(argv) {
 
             mp3Files.push(mp3Fn);
 
-            if (paramSynth) {
+            if (paramAudio) {
                 // we could to the synthesis in parallel, but for now make it simple
                 // and do it in sync
                 await synthesizeSsml(ssml, mp3Fn, paramVoiceParsed, paramSpeakingRate);
             }
         }
 
-        if (paramSynth) {
+        if (paramAudio) {
             const resultMp3 = `${filenameBase}${MP3_EXTENSION}`;
             unlinkIfExists(resultMp3);
 
