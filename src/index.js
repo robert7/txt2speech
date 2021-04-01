@@ -170,18 +170,18 @@ async function importTxtFile(fileName, options) {
  */
 const parseCommandLine = function(argv) {
     const configuredOptionator = optionator({
-        prepend: `Usage: ${PROG_NAME} [options...]\n`
+        prepend: `Usage: ${PROG_NAME} text-file [options...]\n`
             + '\n'
             + 'Examples:\n'
             + '  ts --listVoices\n'
-            + '  ts --import abc.txt --startLine 10 --endLine 100\n'
-            + '  ts --import tmp/a.txt --startLine 10  --endLine 12 --voice "en-US-Standard-A, MALE, en-US" --audio\n'
+            + '  ts abc.txt --startLine 10 --endLine 100\n'
+            + '  ts abd.txt --startLine 10  --endLine 12 --voice "en-US-Standard-A, MALE, en-US" --audio\n'
             + '\n'
             + 'As invoking --audio may involve costs (if you are over the free tier), it may be reasonable for tests\n'
             + 'to limit the processing scope. As of 2021-03 about 1M of input text is free, which is quite a lot.'
             + '\n'
             + 'Version 1.0',
-        typeAliases: {filename: 'String', voice: 'String', rate: 'Number'},
+        typeAliases: {filename: 'String', voice: 'String', rate: 'Number', line: 'Int'},
         options: [{
             option: 'help',
             alias: 'h',
@@ -193,23 +193,18 @@ const parseCommandLine = function(argv) {
             type: 'Boolean',
             description: 'List available voices.\n'
         }, {
-            option: 'import',
-            alias: 'i',
-            type: 'filename',
-            description: 'Text file to import.'
-        }, {
             option: 'startLine',
-            type: 'Int',
+            type: 'line',
             description: 'Line number where conversion should start (first document line has number 1).'
         }, {
             option: 'endLine',
-            type: 'Int',
+            type: 'line',
             description: 'Line number where conversion should end (line with given number is included).'
         }, {
             option: 'remove',
             type: 'Boolean',
-            description: 'skip removing intermediate files at the end (*.ssml and *.mp3). If "remove" is active,\n'
-                + 'files are only removed of --audio went well.',
+            description: 'Skip removing intermediate files at the end (*.ssml and *.mp3). If "remove" is active, '
+                + 'files are only removed if --audio went well.',
             default: 'true'
         }, {
             option: 'voice',
@@ -230,8 +225,18 @@ const parseCommandLine = function(argv) {
     });
 
     const options = configuredOptionator.parseArgv(argv);
-    let displayHelpAndQuit = options.help
-        || (!options.import && !options.listVoices);
+    const argsAfterOptions = options._;
+
+    const hasImportFile = Array.isArray(argsAfterOptions) && (argsAfterOptions.length === 1);
+    const hasListVoices = options.listVoices;
+    let displayHelpAndQuit = options.help || (!(hasImportFile || hasListVoices));
+
+    const importFile = !displayHelpAndQuit ? argsAfterOptions[0] : undefined;
+    if (hasImportFile) {
+        displayHelpAndQuit = displayHelpAndQuit || (!importFile.endsWith(TXT_EXTENSION));
+    }
+
+    options.import = importFile;
     options.displayHelpAndQuit = displayHelpAndQuit;
 
     if (displayHelpAndQuit) {
@@ -240,8 +245,9 @@ const parseCommandLine = function(argv) {
     return options;
 };
 
-const zeroPad = (num, places) => String(num).padStart(places, '0');
+// const zeroPad = (num, places) => String(num).padStart(places, '0');
 
+// voice parameter should be a string consisting of 3 parts delimited by ','
 const EXPECTED_VOICE_PARTS = 3;
 
 function parseVoice(paramVoice) {
@@ -297,15 +303,20 @@ async function main(argv) {
             const {
                 id, ssml
             } = block;
-            const idPadded = zeroPad(id, 5);
+            //const idPadded = zeroPad(id, 5);
 
-            console.log(`Processing id:${idPadded}, ssml:${ssml}`);
-            const ssmlFn = `${filenameBase}-${idPadded}${SSML_EXTENSION}`;
+            console.log(`Processing id:${id}, ssml:${ssml}`);
+            // temporary files are generated in current directory
+            // we could use "filenameBase" but it may be long and contain speces/special chars
+            // so lets stay with simple filenames for now
+            // of course the program may then NOT run in parallel in same directory
+            const filenameBaseTmp = 'tstmp';
+            const ssmlFn = `${filenameBaseTmp}-${id}${SSML_EXTENSION}`;
             unlinkIfExists(ssmlFn);
 
             await writeFile(ssmlFn, ssml);
             ssmlFiles.push(ssmlFn);
-            const mp3Fn = `${filenameBase}-${idPadded}${MP3_EXTENSION}`;
+            const mp3Fn = `${filenameBaseTmp}-${id}${MP3_EXTENSION}`;
             unlinkIfExists(mp3Fn);
 
             mp3Files.push(mp3Fn);
@@ -320,7 +331,6 @@ async function main(argv) {
         if (paramAudio) {
             const resultMp3 = `${filenameBase}${MP3_EXTENSION}`;
             unlinkIfExists(resultMp3);
-
 
             const concatOK = await concatMp3Files(mp3Files, resultMp3);
             if (!concatOK) {
