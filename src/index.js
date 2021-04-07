@@ -299,6 +299,7 @@ async function main(argv) {
         const mp3Files = [];
         const ssmlFiles = [];
         const writeFile = util.promisify(fs.writeFile);
+        let mp3RenderingOK = true;
         for (const block of blocks) {
             const {
                 id, ssml
@@ -324,11 +325,15 @@ async function main(argv) {
             if (paramAudio) {
                 // we could to the synthesis in parallel, but for now make it simple
                 // and do it in sync
-                await synthesizeSsml(ssml, mp3Fn, paramVoiceParsed, paramSpeakingRate);
+                mp3RenderingOK = await synthesizeSsml(ssml, mp3Fn, paramVoiceParsed, paramSpeakingRate);
+                if (!mp3RenderingOK) {
+                    console.log('*** AUDIO RENDERING FAILED! ***');
+                    return;
+                }
             }
         }
 
-        if (paramAudio) {
+        if (paramAudio && mp3RenderingOK) {
             const resultMp3 = `${filenameBase}${MP3_EXTENSION}`;
             unlinkIfExists(resultMp3);
 

@@ -35,28 +35,35 @@ exports.listVoices = async function listVoices() {
  * @return {Promise<void>}
  */
 exports.synthesizeSsml = async function synthesizeSsml(ssml, outputFile, voice, speakingRate) {
-    const client = new textToSpeech.TextToSpeechClient();
+    try {
+        const client = new textToSpeech.TextToSpeechClient();
 
-    if (!voice) {
-        voice = DEFAULT_VOICE;
-    }
-    if (!speakingRate) {
-        speakingRate = DEFAULT_SPEAKING_RATE;
-    }
-
-    const request = {
-        input: {ssml},
-        // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#VoiceSelectionParams
-        voice,
-        // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#AudioConfig
-        audioConfig: {
-            audioEncoding: 'MP3',
-            speakingRate
+        if (!voice) {
+            voice = DEFAULT_VOICE;
         }
-    };
+        if (!speakingRate) {
+            speakingRate = DEFAULT_SPEAKING_RATE;
+        }
 
-    const [response] = await client.synthesizeSpeech(request);
-    const writeFile = util.promisify(fs.writeFile);
-    await writeFile(outputFile, response.audioContent, 'binary');
-    console.log(`Audio content written to file: ${outputFile}`);
+        const request = {
+            input: {ssml},
+            // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#VoiceSelectionParams
+            voice,
+            // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#AudioConfig
+            audioConfig: {
+                audioEncoding: 'MP3',
+                speakingRate
+            }
+        };
+
+        const [response] = await client.synthesizeSpeech(request);
+        const writeFile = util.promisify(fs.writeFile);
+        await writeFile(outputFile, response.audioContent, 'binary');
+        console.log(`Audio content written to file: ${outputFile}`);
+        return true;
+    } catch (e) {
+        console.log(`Audio rendering failed: ${e}`);
+        return false;
+    }
+
 };
