@@ -174,11 +174,11 @@ const parseCommandLine = function(argv) {
             + '\n'
             + 'Examples:\n'
             + '  ts --listVoices\n'
-            + '  ts abc.txt --startLine 10 --endLine 100\n'
-            + '  ts abd.txt --startLine 10  --endLine 12 --voice "en-US-Standard-A, MALE, en-US" --audio\n'
+            + '  ts abc.txt --startLine 10 --endLine 100 --no-audio\n'
+            + '  ts abd.txt --startLine 10 --endLine 12 --voice "en-US-Standard-A, MALE, en-US"\n'
             + '\n'
-            + 'As invoking --audio may involve costs (if you are over the free tier), it may be reasonable for tests\n'
-            + 'to limit the processing scope. As of 2021-03 about 1M of input text is free, which is quite a lot.'
+            + 'As invoking with --audio may involve costs (if you are over the free tier), it may be reasonable for tests\n'
+            + 'to limit the processing scope.'
             + '\n'
             + 'Version 1.0',
         typeAliases: {filename: 'String', voice: 'String', rate: 'Number', line: 'Int'},
