@@ -217,9 +217,9 @@ const parseCommandLine = function(argv) {
             description: 'Speaking rate. Default: "0.8".'
         }, {
             option: 'audio',
-            alias: 'a',
             type: 'Boolean',
-            description: 'Voice synthesis (generate audio version). This will narrate the TXT file into mp3.'
+            description: 'Skip voice synthesis (just generate intermediary files). If not used, MP3 version is generated. (Can cause costs).',
+            default: 'true'
         }
         ]
     });
