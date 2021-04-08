@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="debug ssml conversion" type="NodeJSConfigurationType" application-parameters="tmp/a.txt  --endLine 670 --audio --voice &quot;en-US-Standard-A, MALE, en-US&quot; --no-audio" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
+    <envs>
+      <env name="GOOGLE_APPLICATION_CREDENTIALS" value="$USER_HOME$/rss-audio-db2746ffea69.json" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>

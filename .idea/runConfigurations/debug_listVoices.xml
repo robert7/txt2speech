@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="debug listVoices" type="NodeJSConfigurationType" application-parameters="--listVoices" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
+    <envs>
+      <env name="GOOGLE_APPLICATION_CREDENTIALS" value="$USER_HOME$/rss-audio-db2746ffea69.json" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>

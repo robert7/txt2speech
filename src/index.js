@@ -9,7 +9,8 @@ const
     es = require('event-stream'),
     util = require('util'),
     // https://www.npmjs.com/package/optionator
-    optionator = require('optionator');
+    optionator = require('optionator'),
+    ProgressBar = require('progress');
 
 const PROG_NAME = 'ts';
 
@@ -19,9 +20,11 @@ const CAPTION_BREAK = 2;
 const TXT_EXTENSION = '.txt';
 const MP3_EXTENSION = '.mp3';
 const SSML_EXTENSION = '.ssml';
+const TEMP_AUDIO_FILE_PREFIX = 'tstmp';
 
 // API currently now limits the requests "ssml text" size to 5000 bytes; but we take lower value
-const MAX_SSML_BLOCK_LEN = 1000;
+const TARGET_SSML_BLOCK_LEN = 2500;
+const MAX_SSML_BLOCK_LEN = 5000;
 
 /**
  * Convert incoming text line to SSML content (without adding "speak" wrapper").
@@ -70,12 +73,16 @@ function convertToSsmlAddSpeak(ssmlContent) {
  * @param ssml Incoming SSML content (currently without the "speak" wrapper).
  */
 function addSsmlContentToResult(blocks, blockId, ssml) {
+    if (ssml.length>MAX_SSML_BLOCK_LEN) {
+        throw 'SSML block longer then API maximum - ABORT';
+    }
+
     if (blocks.length > 0) {
         const lastResultBlock = blocks[blocks.length - 1];
         const lastSsmlContent = lastResultBlock.ssml;
         // if the size is smaller then MAX,just append the text
         // this decreases the count of resulting blocks a bit (and thus less requests and less "mp3" files)
-        if ((lastSsmlContent.length + ssml.length) < MAX_SSML_BLOCK_LEN) {
+        if ((lastSsmlContent.length + ssml.length) < TARGET_SSML_BLOCK_LEN) {
             lastResultBlock.ssml = lastResultBlock.ssml + ssml;
             return;
         }
@@ -137,7 +144,7 @@ async function importTxtFile(fileName, options) {
                         const ssml = convertToSsmlContent(line, emptyLinesBefore);
                         addSsmlContentToResult(blocks, lineNr, ssml);
 
-                        console.log(`line ${lineNr}: ${ssml}`);
+                        // console.log(`line ${lineNr}: ${ssml}`);
                     }
                     if (isEmptyLine) {
                         emptyLinesBefore++;
@@ -293,31 +300,40 @@ async function main(argv) {
 
         const filenameBase = paramImportFileName.substr(0, paramImportFileName.length - TXT_EXTENSION.length);
 
-        const blocks = await importTxtFile(paramImportFileName, options);
-        console.log(`Converted SSML blocks ${JSON.stringify(blocks)}`);
+        try {
+            const blocks = await importTxtFile(paramImportFileName, options);
+        } catch(e) {
+            console.log(`ABORT - Failed to read/convert input file!`);
+            return;
+        }
+
+
+        // console.log(`Converted SSML blocks ${JSON.stringify(blocks)}`);
+        const ssmlBlockCount = blocks.length;
+        console.log(`Converted to ${ssmlBlockCount} SSML blocks`);
 
         const mp3Files = [];
         const ssmlFiles = [];
         const writeFile = util.promisify(fs.writeFile);
         let mp3RenderingOK = true;
+        const bar = new ProgressBar(':percent / ETA :eta sec. :bar', {total: ssmlBlockCount, width: 20});
         for (const block of blocks) {
             const {
                 id, ssml
             } = block;
-            //const idPadded = zeroPad(id, 5);
 
-            console.log(`Processing id:${id}, ssml:${ssml}`);
+            //console.log(`Processing id:${id}, ssml:${ssml}`);
+
             // temporary files are generated in current directory
             // we could use "filenameBase" but it may be long and contain speces/special chars
             // so lets stay with simple filenames for now
             // of course the program may then NOT run in parallel in same directory
-            const filenameBaseTmp = 'tstmp';
-            const ssmlFn = `${filenameBaseTmp}-${id}${SSML_EXTENSION}`;
+            const ssmlFn = `${TEMP_AUDIO_FILE_PREFIX}-${id}${SSML_EXTENSION}`;
             unlinkIfExists(ssmlFn);
 
             await writeFile(ssmlFn, ssml);
             ssmlFiles.push(ssmlFn);
-            const mp3Fn = `${filenameBaseTmp}-${id}${MP3_EXTENSION}`;
+            const mp3Fn = `${TEMP_AUDIO_FILE_PREFIX}-${id}${MP3_EXTENSION}`;
             unlinkIfExists(mp3Fn);
 
             mp3Files.push(mp3Fn);
@@ -327,10 +343,11 @@ async function main(argv) {
                 // and do it in sync
                 mp3RenderingOK = await synthesizeSsml(ssml, mp3Fn, paramVoiceParsed, paramSpeakingRate);
                 if (!mp3RenderingOK) {
-                    console.log('*** AUDIO RENDERING FAILED! ***');
+                    console.log('ABORT - audio rendering failed!');
                     return;
                 }
             }
+            bar.tick();
         }
 
         if (paramAudio && mp3RenderingOK) {

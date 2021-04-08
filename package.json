@@ -22,6 +22,7 @@
     "bluebird": "3.7.2",
     "event-stream": "4.0.1",
     "moment": "2.24.0",
-    "optionator": "0.8.3"
+    "optionator": "0.8.3",
+    "progress": "2.0.3"
   }
 }

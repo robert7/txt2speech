@@ -59,7 +59,7 @@ exports.synthesizeSsml = async function synthesizeSsml(ssml, outputFile, voice, 
         const [response] = await client.synthesizeSpeech(request);
         const writeFile = util.promisify(fs.writeFile);
         await writeFile(outputFile, response.audioContent, 'binary');
-        console.log(`Audio content written to file: ${outputFile}`);
+        // console.log(`Audio content written to file: ${outputFile}`);
         return true;
     } catch (e) {
         console.log(`Audio rendering failed: ${e}`);
