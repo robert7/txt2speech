@@ -316,7 +316,11 @@ async function main(argv) {
         const ssmlFiles = [];
         const writeFile = util.promisify(fs.writeFile);
         let mp3RenderingOK = true;
+
+
+        // https://github.com/visionmedia/node-progress#readme
         const bar = new ProgressBar(':percent / ETA :eta sec. :bar', {total: ssmlBlockCount, width: 20});
+        bar.update(0);
         for (const block of blocks) {
             const {
                 id, ssml
