@@ -4,6 +4,7 @@
 *.bak
 node_modules
 *.log
+*.txt-temp
 tmp
 
 .tmp/**
