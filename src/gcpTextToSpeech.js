@@ -46,7 +46,7 @@ exports.synthesizeSsml = async function synthesizeSsml(ssml, outputFile, voice, 
         }
 
         const request = {
-            input: {ssml},
+            input: {text: ssml},
             // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#VoiceSelectionParams
             voice,
             // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#AudioConfig

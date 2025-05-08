@@ -19,3 +19,4 @@ config/config.json
 .idea/watcherTasks.xml
 .idea/checkstyle-idea.xml
 .idea/**/sonarlint*
+.idea/**/GitlabLint.xml

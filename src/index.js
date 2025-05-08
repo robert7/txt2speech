@@ -141,8 +141,8 @@ async function importTxtFile(fileName, options) {
                         if (lineLength > maxLineLength) {
                             maxLineLength = lineLength;
                         }
-                        const ssml = convertToSsmlContent(line, emptyLinesBefore);
-                        addSsmlContentToResult(blocks, lineNr, ssml);
+                        //const ssml = convertToSsmlContent(line, emptyLinesBefore);
+                        addSsmlContentToResult(blocks, lineNr, line);
 
                         // console.log(`line ${lineNr}: ${ssml}`);
                     }
