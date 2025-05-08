@@ -1,7 +1,7 @@
-// TODO escape xml chars in SSML lines
+// TODO escape xml chars in input lines
 // TODO handle lines >5000 chars
 
-const {listVoices, synthesizeSsml} = require('./gcpTextToSpeech'),
+const {listVoices, synthesize} = require('./gcpTextToSpeech'),
     {concatMp3Files} = require('./mp3Util');
 
 const
@@ -19,71 +19,32 @@ const CAPTION_BREAK = 2;
 
 const TXT_EXTENSION = '.txt';
 const MP3_EXTENSION = '.mp3';
-const SSML_EXTENSION = '.ssml';
+const CONTENT_EXTENSION = '.txt-temp';
 const TEMP_AUDIO_FILE_PREFIX = 'tstmp';
 
-// API currently now limits the requests "ssml text" size to 5000 bytes; but we take lower value
-const TARGET_SSML_BLOCK_LEN = 2500;
-const MAX_SSML_BLOCK_LEN = 5000;
+// API currently now limits the requests text size to ~5000 bytes; but we take lower value
+const TARGET_BLOCK_LEN = 2500;
+const MAX__BLOCK_LEN = 5000;
 
 /**
- * Convert incoming text line to SSML content (without adding "speak" wrapper").
- * There is a little heuristic based on empty lines, which could improve the narration a bit.
- *
- * @param line Incoming trext line.
- * @param emptyLines Empty line count *before* this line.
- *
- * @returns {string}
- */
-function convertToSsmlContent(line, emptyLines) {
-    let breakTime = null;
-    // make a little pause based on count of empty lines before; so basically we guess the "headers"
-    if (emptyLines > 0) {
-        breakTime = CAPTION_BREAK;
-    }
-    if (emptyLines > 1) {
-        breakTime = SECTION_BREAK;
-    }
-
-    const breakAfterMarkup = breakTime ? `<break time="${breakTime}s"/>` : '';
-
-    const sentences = line.split('. ');
-    if (Array.isArray(sentences) && (sentences.length > 1)) {
-        const sentencesSsml = sentences.map(sentence => `<s>${sentence}</s>`);
-        line = sentencesSsml.join('');
-    }
-
-    return `<p>${line}</p>${breakAfterMarkup}`;
-}
-
-/**
- * Just add the "speak" wrapper.
- * @param ssmlContent
- * @returns {string}
- */
-function convertToSsmlAddSpeak(ssmlContent) {
-    return `<speak>${ssmlContent}</speak>`;
-}
-
-/**
- * Add one SSML content block to result list.
+ * Add one content block to a result list.
  *
  * @param blocks List of result blocks.
  * @param blockId New block ID (taken from line number)
- * @param ssml Incoming SSML content (currently without the "speak" wrapper).
+ * @param textContent Incoming text content (currently without the "speak" wrapper).
  */
-function addSsmlContentToResult(blocks, blockId, ssml) {
-    if (ssml.length>MAX_SSML_BLOCK_LEN) {
-        throw 'SSML block longer then API maximum - ABORT';
+function addContentToResult(blocks, blockId, textContent) {
+    if (textContent.length > MAX__BLOCK_LEN) {
+        throw 'block longer then API maximum - ABORT';
     }
 
     if (blocks.length > 0) {
         const lastResultBlock = blocks[blocks.length - 1];
-        const lastSsmlContent = lastResultBlock.ssml;
-        // if the size is smaller then MAX,just append the text
-        // this decreases the count of resulting blocks a bit (and thus less requests and less "mp3" files)
-        if ((lastSsmlContent.length + ssml.length) < TARGET_SSML_BLOCK_LEN) {
-            lastResultBlock.ssml = lastResultBlock.ssml + ssml;
+        const lastContent = lastResultBlock.blockContent;
+        // if the size is smaller than MAX, just append the text
+        // this decreases the count of resulting blocks a bit (and thus fewer requests and fewer "mp3" files)
+        if ((lastContent.length + textContent.length) < TARGET_BLOCK_LEN) {
+            lastResultBlock.blockContent = lastResultBlock.blockContent + '\n' + textContent;
             return;
         }
     }
@@ -91,7 +52,7 @@ function addSsmlContentToResult(blocks, blockId, ssml) {
     // else append new block
     blocks.push({
             id: blockId,
-            ssml
+            blockContent: textContent
         }
     );
 }
@@ -122,7 +83,7 @@ async function importTxtFile(fileName, options) {
             // https://github.com/dominictarr/event-stream#split-matcher
             .pipe(es.split())
             .pipe(
-                es.mapSync(function(line) {
+                es.mapSync(function (line) {
 
                     // pause the readstream
                     stream.pause();
@@ -132,8 +93,7 @@ async function importTxtFile(fileName, options) {
 
                     lineNr += 1;
                     const processLine = (lineNr >= paramStartLine || (!paramStartLine))
-                        && (lineNr <= paramEndLine || (!paramEndLine))
-                        && !isEmptyLine;
+                        && (lineNr <= paramEndLine || (!paramEndLine));
 
                     if (processLine) {
                         // process line here and call s.resume() when ready
@@ -141,10 +101,9 @@ async function importTxtFile(fileName, options) {
                         if (lineLength > maxLineLength) {
                             maxLineLength = lineLength;
                         }
-                        const ssml = convertToSsmlContent(line, emptyLinesBefore);
-                        addSsmlContentToResult(blocks, lineNr, ssml);
+                        addContentToResult(blocks, lineNr, line);
 
-                        // console.log(`line ${lineNr}: ${ssml}`);
+                        console.log(`line ${lineNr}: ${line}`);
                     }
                     if (isEmptyLine) {
                         emptyLinesBefore++;
@@ -154,15 +113,16 @@ async function importTxtFile(fileName, options) {
 
                     // resume the readstream, possibly from a callback
                     stream.resume();
-                }).on('error', function(err) {
+                }).on('error', function (err) {
                     console.log(`Error while reading file ${fileName} (at line ${lineNr})`, err);
                     reject();
-                }).on('end', function() {
+                }).on('end', function () {
                     console.log(`Read entire file ${fileName} (${lineNr} lines; max.line length ${maxLineLength})`);
-                    // add "speak" wrapper
-                    blocks.forEach(block => {
-                        block.ssml = convertToSsmlAddSpeak(block.ssml);
-                    });
+
+                    // // add "speak" wrapper
+                    // blocks.forEach(block => {
+                    //     block.blockContent = convertToSsmlAddSpeak(block.blockContent);
+                    // });
 
                     resolve(blocks);
                 })
@@ -175,7 +135,7 @@ async function importTxtFile(fileName, options) {
  * @param argv CLI arguments.
  * @return {{help}|*} Parsed options
  */
-const parseCommandLine = function(argv) {
+const parseCommandLine = function (argv) {
     const configuredOptionator = optionator({
         prepend: `Usage: ${PROG_NAME} text-file [options...]\n`
             + '\n'
@@ -210,7 +170,7 @@ const parseCommandLine = function(argv) {
         }, {
             option: 'remove',
             type: 'Boolean',
-            description: 'Skip removing intermediate files at the end (*.ssml and *.mp3). If "remove" is active, '
+            description: `Skip removing intermediate files at the end (*${CONTENT_EXTENSION} and *.mp3). If "remove" is active, `
                 + 'files are only removed if --audio went well.',
             default: 'true'
         }, {
@@ -302,41 +262,39 @@ async function main(argv) {
 
         try {
             const blocks = await importTxtFile(paramImportFileName, options);
-        } catch(e) {
+        } catch (e) {
             console.log(`ABORT - Failed to read/convert input file!`);
             return;
         }
 
-
-        // console.log(`Converted SSML blocks ${JSON.stringify(blocks)}`);
-        const ssmlBlockCount = blocks.length;
-        console.log(`Converted to ${ssmlBlockCount} SSML blocks`);
+        // console.log(`Converted blocks ${JSON.stringify(blocks)}`);
+        const blockCount = blocks.length;
+        console.log(`Converted to ${blockCount} blocks`);
 
         const mp3Files = [];
-        const ssmlFiles = [];
+        const contentFiles = [];
         const writeFile = util.promisify(fs.writeFile);
         let mp3RenderingOK = true;
 
-
         // https://github.com/visionmedia/node-progress#readme
-        const bar = new ProgressBar(':percent / ETA :eta sec. :bar', {total: ssmlBlockCount, width: 20});
+        const bar = new ProgressBar(':percent / ETA :eta sec. :bar', {total: blockCount, width: 20});
         bar.update(0);
         for (const block of blocks) {
             const {
-                id, ssml
+                id, blockContent: blockContent
             } = block;
 
-            //console.log(`Processing id:${id}, ssml:${ssml}`);
+            //console.log(`Processing id:${id}, blockContent:${blockContent}`);
 
             // temporary files are generated in current directory
             // we could use "filenameBase" but it may be long and contain speces/special chars
             // so lets stay with simple filenames for now
             // of course the program may then NOT run in parallel in same directory
-            const ssmlFn = `${TEMP_AUDIO_FILE_PREFIX}-${id}${SSML_EXTENSION}`;
-            unlinkIfExists(ssmlFn);
+            const contentFn = `${TEMP_AUDIO_FILE_PREFIX}-${id}${CONTENT_EXTENSION}`;
+            unlinkIfExists(contentFn);
 
-            await writeFile(ssmlFn, ssml);
-            ssmlFiles.push(ssmlFn);
+            await writeFile(contentFn, blockContent);
+            contentFiles.push(contentFn);
             const mp3Fn = `${TEMP_AUDIO_FILE_PREFIX}-${id}${MP3_EXTENSION}`;
             unlinkIfExists(mp3Fn);
 
@@ -345,7 +303,7 @@ async function main(argv) {
             if (paramAudio) {
                 // we could to the synthesis in parallel, but for now make it simple
                 // and do it in sync
-                mp3RenderingOK = await synthesizeSsml(ssml, mp3Fn, paramVoiceParsed, paramSpeakingRate);
+                mp3RenderingOK = await synthesize(blockContent, mp3Fn, paramVoiceParsed, paramSpeakingRate);
                 if (!mp3RenderingOK) {
                     console.log('ABORT - audio rendering failed!');
                     return;
@@ -364,7 +322,7 @@ async function main(argv) {
             }
             if (concatOK && paramRemove) {
                 console.log(`About to remove intermediate files..`);
-                mp3Files.concat(ssmlFiles).forEach(file => unlinkIfExists(file));
+                mp3Files.concat(contentFiles).forEach(file => unlinkIfExists(file));
             }
         }
 
