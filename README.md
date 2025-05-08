@@ -7,10 +7,12 @@ Based on samples in [googleapis/nodejs-text-to-speech](https://github.com/google
 
 As it is a kind of "MVP" for my personal use case, parts are a bit hardcoded.
 
-It works only with Google Cloud account with activated billing, but there is a "[free tier](https://cloud.google.com/free/docs/gcp-free-tier)". 
+It works only with Google Cloud account with activated billing, but there is a "[free tier - pricing](https://cloud.google.com/text-to-speech/pricing?hl=en)".
 Currently, ~1M of input text per month should be free (but do recheck actual state, as this may change). 
 So there will be no charge until some amount of processed data.
-For my use cases, there is quite a lot free. 
+For my use cases, there is quite a lot free.
+
+As of 2025-05 free tier includes Chirp 3 HD voices (1M chars free tier).
 
 See `--help` option for description of parameters.
 
@@ -25,8 +27,10 @@ See `--help` option for description of parameters.
 "texttospeech.googleapis.com" needs to be activated in your Google Cloud project
 https://cloud.google.com/text-to-speech/docs/reference/rest/?apix=true
 
-Authentication (alternative to using service account):
-# fish
+Authentication (alternative to using service account - NOT recommended, but possible e.g. for quick testing):
+
+```fish
+
 set USER x@x.com
 set PROJECT_ID project-id
 
@@ -35,6 +39,7 @@ gcloud config set project $PROJECT_ID
 gcloud auth application-default set-quota-project $PROJECT_ID
 gcloud config set billing/quota_project $PROJECT_ID
 gcloud auth application-default login
+```
 
 Check voice demos at (new Chirp 3: HD voices): https://cloud.google.com/text-to-speech/docs/chirp3-hd
 

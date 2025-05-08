@@ -1,8 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="debug audio" type="NodeJSConfigurationType" application-parameters="tmp/a.txt --startLine 651 --endLine 670 --audio --voice &quot;en-US-Standard-A, MALE, en-US&quot;" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
-    <envs>
-      <env name="GOOGLE_APPLICATION_CREDENTIALS" value="$USER_HOME$/rss-audio-db2746ffea69.json" />
-    </envs>
+  <configuration default="false" name="debug audio" type="NodeJSConfigurationType" application-parameters="tmp/a.txt --startLine 1 --endLine 10 --audio --voice &quot;en-US-Chirp3-HD-Aoede, FEMALE, en-US&quot;" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
     <method v="2" />
   </configuration>
 </component>
