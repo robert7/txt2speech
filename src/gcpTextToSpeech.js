@@ -29,12 +29,12 @@ exports.listVoices = async function listVoices() {
 
 /**
  * Synthetize given SSML into mp3 output using given voice.
- * @param ssml
+ * @param text Text to be converted to speech. Should be plain text.
  * @param outputFile
  * @param voice
  * @return {Promise<void>}
  */
-exports.synthesizeSsml = async function synthesizeSsml(ssml, outputFile, voice, speakingRate) {
+exports.synthesize = async function synthesizeSsml(text, outputFile, voice, speakingRate) {
     try {
         const client = new textToSpeech.TextToSpeechClient();
 
@@ -46,7 +46,7 @@ exports.synthesizeSsml = async function synthesizeSsml(ssml, outputFile, voice, 
         }
 
         const request = {
-            input: {text: ssml},
+            input: {text},
             // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#VoiceSelectionParams
             voice,
             // https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize#AudioConfig

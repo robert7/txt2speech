@@ -1,0 +1,5 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="debug text conversion" type="NodeJSConfigurationType" application-parameters="tmp/a.txt  --endLine 670 --audio --voice &quot;en-US-Chirp3-HD-Aoede, FEMALE, en-US&quot; --no-audio" path-to-js-file="src/index.js" working-dir="$PROJECT_DIR$">
+    <method v="2" />
+  </configuration>
+</component>
