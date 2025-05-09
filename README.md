@@ -47,5 +47,15 @@ gcloud auth application-default revoke
 Check voice demos at (new Chirp 3: HD voices): https://cloud.google.com/text-to-speech/docs/chirp3-hd
 
 
+## Troubleshooting
+### This request contains sentences that are too long. Consider splitting up long sentences.
+
+See `fixLongLines()`, which is currently commented out.
+In my case, the problem was, that although particular line contained "." as request by Google TTS,
+some "." were followed by further characters e.g. line "xx xx xx.12 sss sss sss.13 xx xx xx."
+then the "." was not recognized as the end of sentence. The solution was to remove the numbers.
+
+
+
 ## Versions
 Tag v2021-ssml for the older version of the code, which uses SSML to generate the audio

@@ -5,11 +5,11 @@ const
     fs = require('fs');
 
 const DEFAULT_VOICE = {
-    name: 'en-US-Wavenet-C',
+    name: 'en-US-Chirp3-HD-Aoede',
     ssmlGender: 'FEMALE',
     languageCode: 'en-US'
 };
-DEFAULT_SPEAKING_RATE = 0.8;
+exports.DEFAULT_SPEAKING_RATE = 0.9;
 
 exports.listVoices = async function listVoices() {
     const client = new textToSpeech.TextToSpeechClient();
@@ -42,7 +42,7 @@ exports.synthesize = async function synthesizeSsml(text, outputFile, voice, spea
             voice = DEFAULT_VOICE;
         }
         if (!speakingRate) {
-            speakingRate = DEFAULT_SPEAKING_RATE;
+            speakingRate = exports.DEFAULT_SPEAKING_RATE;
         }
 
         const request = {

@@ -1,7 +1,7 @@
 // TODO escape xml chars in input lines
 // TODO handle lines >5000 chars
 
-const {listVoices, synthesize} = require('./gcpTextToSpeech'),
+const {listVoices, synthesize, DEFAULT_SPEAKING_RATE} = require('./gcpTextToSpeech'),
     {concatMp3Files} = require('./mp3Util');
 
 const
@@ -24,7 +24,44 @@ const TEMP_AUDIO_FILE_PREFIX = 'tstmp';
 
 // API currently now limits the requests text size to ~5000 bytes; but we take lower value
 const TARGET_BLOCK_LEN = 2500;
-const MAX__BLOCK_LEN = 5000;
+const MAX_BLOCK_LEN = 5000;
+
+// break lines longer than this into smaller blocks
+const BREAK_LINE_LEN = 300;
+
+
+/**
+ * Break long lines into smaller blocks.
+ * This will still fail to fix the problem if any sentence in the line is longer than BREAK_LINE_LEN.
+ *
+ * @param textContent Text content to be processed.
+ * @return {string} Processed text content.
+ */
+function fixLongLines(textContent) {
+    // split line at ". "
+    // assemble new blocks into a temporary array, so that each block is smaller than BREAK_LINE_LEN
+    // join the blocks with ".\n"
+
+    const tmp = [];
+    const lines = textContent.split('. ');
+    let currentBlock = '';
+    lines.forEach(line => {
+        const lineLength = line.length;
+        if (currentBlock.length + lineLength < BREAK_LINE_LEN) {
+            currentBlock += (currentBlock.length > 0 ? '. ' : '') + line;
+        } else {
+            tmp.push(currentBlock);
+            currentBlock = line;
+        }
+    });
+    if (currentBlock.length > 0) {
+        tmp.push(currentBlock);
+    }
+    // now we have a list of blocks, each smaller than BREAK_LINE_LEN
+    // now we need to add them to the result blocks
+    textContent = tmp.join('.\n');
+    return textContent;
+}
 
 /**
  * Add one content block to a result list.
@@ -34,14 +71,29 @@ const MAX__BLOCK_LEN = 5000;
  * @param textContent Incoming text content (currently without the "speak" wrapper).
  */
 function addContentToResult(blocks, blockId, textContent) {
-    if (textContent.length > MAX__BLOCK_LEN) {
+
+    // temporarily disabling although it should work as a fix
+    // the problem was, that line contained "." as request by Google TTS,
+    // but some "." were followred by further characters
+    // e.g. "xx xx xx.12 sss sss sss.13 xx xx xx"
+    // then the "." was not recognised as end of sentence
+
+    // if (textContent.length > BREAK_LINE_LEN) {
+    //     const textContentOrig = textContent;
+    //     textContent = fixLongLines(textContent);
+    //     console.warn(`WARN: Line ${blockId} is too long`);
+    //     console.log(`Original: ${textContentOrig}`);
+    //     console.log(`Fixed: ${textContent}`);
+    // }
+
+    if (textContent.length > MAX_BLOCK_LEN) {
         throw 'block longer then API maximum - ABORT';
     }
 
     if (blocks.length > 0) {
         const lastResultBlock = blocks[blocks.length - 1];
         const lastContent = lastResultBlock.blockContent;
-        // if the size is smaller than MAX, just append the text
+        // if the size is smaller than MAX, append the text
         // this decreases the count of resulting blocks a bit (and thus fewer requests and fewer "mp3" files)
         if ((lastContent.length + textContent.length) < TARGET_BLOCK_LEN) {
             lastResultBlock.blockContent = lastResultBlock.blockContent + '\n' + textContent;
@@ -181,7 +233,7 @@ const parseCommandLine = function (argv) {
         }, {
             option: 'speakingRate',
             type: 'rate',
-            description: 'Speaking rate. Default: "0.8".'
+            description: `Speaking rate. Default: "${DEFAULT_SPEAKING_RATE}".`
         }, {
             option: 'audio',
             type: 'Boolean',
@@ -277,16 +329,15 @@ async function main(argv) {
         let mp3RenderingOK = true;
 
         // https://github.com/visionmedia/node-progress#readme
-        const bar = new ProgressBar(':percent / ETA :eta sec. :bar', {total: blockCount, width: 20});
-        bar.update(0);
+        let blockNr = 0;
         for (const block of blocks) {
             const {
                 id, blockContent: blockContent
             } = block;
+            blockNr++;
+            console.log(`Processing block ${blockNr}/${blockCount}, id:${id}, (${blockContent.length} chars)`);
 
-            //console.log(`Processing id:${id}, blockContent:${blockContent}`);
-
-            // temporary files are generated in current directory
+            // temporary files are generated in the current directory
             // we could use "filenameBase" but it may be long and contain speces/special chars
             // so lets stay with simple filenames for now
             // of course the program may then NOT run in parallel in same directory
@@ -309,7 +360,6 @@ async function main(argv) {
                     return;
                 }
             }
-            bar.tick();
         }
 
         if (paramAudio && mp3RenderingOK) {
