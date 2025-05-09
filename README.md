@@ -40,7 +40,7 @@ gcloud auth application-default set-quota-project $PROJECT_ID
 gcloud config set billing/quota_project $PROJECT_ID
 gcloud auth application-default login
 
-# don't forget revoke default credentials
+# don't forget to revoke default credentials
 gcloud auth application-default revoke
 ```
 

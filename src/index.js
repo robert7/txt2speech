@@ -9,8 +9,7 @@ const
     es = require('event-stream'),
     util = require('util'),
     // https://www.npmjs.com/package/optionator
-    optionator = require('optionator'),
-    ProgressBar = require('progress');
+    optionator = require('optionator');
 
 const PROG_NAME = 'ts';
 
