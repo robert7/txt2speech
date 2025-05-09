@@ -39,6 +39,9 @@ gcloud config set project $PROJECT_ID
 gcloud auth application-default set-quota-project $PROJECT_ID
 gcloud config set billing/quota_project $PROJECT_ID
 gcloud auth application-default login
+
+# don't forget revoke default credentials
+gcloud auth application-default revoke
 ```
 
 Check voice demos at (new Chirp 3: HD voices): https://cloud.google.com/text-to-speech/docs/chirp3-hd
