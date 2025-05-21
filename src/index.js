@@ -12,14 +12,11 @@ const
     optionator = require('optionator');
 
 const PROG_NAME = 'ts';
-
-const SECTION_BREAK = 4;
-const CAPTION_BREAK = 2;
-
 const TXT_EXTENSION = '.txt';
 const MP3_EXTENSION = '.mp3';
 const CONTENT_EXTENSION = '.txt-temp';
 const TEMP_AUDIO_FILE_PREFIX = 'tstmp';
+const VERSION = '1.0';
 
 // API currently now limits the requests text size to ~5000 bytes; but we take lower value
 const TARGET_BLOCK_LEN = 2500;
@@ -192,7 +189,7 @@ const parseCommandLine = function (argv) {
             + 'As invoking with --audio may involve costs (if you are over the free tier), it may be reasonable for tests\n'
             + 'to limit the processing scope.'
             + '\n'
-            + 'Version 1.0',
+            + `Version ${VERSION}`,
         typeAliases: {filename: 'String', voice: 'String', rate: 'Number', line: 'Int'},
         options: [{
             option: 'help',
