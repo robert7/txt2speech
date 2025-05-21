@@ -71,7 +71,7 @@ function fixLongLines(textContent) {
  */
 function addContentToResult(blocks, blockId, textContent) {
 
-    // temporarily disabling although it should work as a fix
+    // temporarily disabling, although it should work as a fix
     // the problem was, that line contained "." as request by Google TTS,
     // but some "." were followred by further characters
     // e.g. "xx xx xx.12 sss sss sss.13 xx xx xx"
@@ -169,12 +169,6 @@ async function importTxtFile(fileName, options) {
                     reject();
                 }).on('end', function () {
                     console.log(`Read entire file ${fileName} (${lineNr} lines; max.line length ${maxLineLength})`);
-
-                    // // add "speak" wrapper
-                    // blocks.forEach(block => {
-                    //     block.blockContent = convertToSsmlAddSpeak(block.blockContent);
-                    // });
-
                     resolve(blocks);
                 })
             );
@@ -262,8 +256,6 @@ const parseCommandLine = function (argv) {
     }
     return options;
 };
-
-// const zeroPad = (num, places) => String(num).padStart(places, '0');
 
 // voice parameter should be a string consisting of 3 parts delimited by ','
 const EXPECTED_VOICE_PARTS = 3;

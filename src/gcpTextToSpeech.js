@@ -25,13 +25,12 @@ exports.listVoices = async function listVoices() {
     });
 };
 
-// SSML: https://cloud.google.com/text-to-speech/docs/ssml
-
 /**
- * Synthetize given SSML into mp3 output using given voice.
+ * Synthetize given text into mp3 output using given voice.
  * @param text Text to be converted to speech. Should be plain text.
  * @param outputFile
  * @param voice
+ * @param speakingRate
  * @return {Promise<void>}
  */
 exports.synthesize = async function synthesizeSsml(text, outputFile, voice, speakingRate) {
