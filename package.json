@@ -17,11 +17,11 @@
   },
   "homepage": "https://github.com/robert7/text2speech",
   "dependencies": {
-    "@google-cloud/text-to-speech": "6.0.1",
+    "@google-cloud/text-to-speech": "^6.1.0",
     "audioconcat": "0.1.4",
     "bluebird": "3.7.2",
     "event-stream": "4.0.1",
-    "moment": "2.29.4",
+    "moment": "^2.30.1",
     "optionator": "0.9.4"
   }
 }
