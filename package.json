@@ -4,7 +4,7 @@
   "description": "Set of utilities to play with text-to-speech-API and generate spoken audio from TXT files",
   "main": "src/index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest --roots ./tests"
   },
   "repository": {
     "type": "git",
