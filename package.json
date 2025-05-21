@@ -4,7 +4,7 @@
   "description": "Set of utilities to play with text-to-speech-API and generate spoken audio from TXT files",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --roots ./tests"
   },
   "repository": {
     "type": "git",
@@ -23,5 +23,9 @@
     "event-stream": "4.0.1",
     "moment": "^2.30.1",
     "optionator": "0.9.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0"
   }
 }
