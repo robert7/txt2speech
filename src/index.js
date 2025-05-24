@@ -70,7 +70,7 @@ function addContentToResult(blocks, blockId, textContent) {
 
     // temporarily disabling, although it should work as a fix
     // the problem was, that line contained "." as request by Google TTS,
-    // but some "." were followred by further characters
+    // but some "." were followed by further characters
     // e.g. "xx xx xx.12 sss sss sss.13 xx xx xx"
     // then the "." was not recognised as end of sentence
 
