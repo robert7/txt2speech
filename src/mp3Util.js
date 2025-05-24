@@ -36,7 +36,7 @@ function unlinkIfExists(filename) {
 }
 
 /**
- * Concat passed mp3 files into result file.
+ * Concat passed mp3 files into a result file.
  * @param mp3Files Array with mp3's to merge
  * @param concatedMp3Filename Name for concatenated mp3
  * @param internals Allows replace callbacks for easier testing; not used for normal calls.
@@ -45,7 +45,7 @@ function unlinkIfExists(filename) {
  */
 exports.concatMp3Files = async function concatMp3Files1(mp3Files, concatedMp3Filename, internals) {
 
-    // bit weird but, this make it testable
+    // a bit weird, but this makes function testable
     const concatMp3FilesIntL = (internals && internals.concatMp3FilesInt) || concatMp3FilesInt;
     const unlinkIfExistsL = (internals && internals.unlinkIfExists) || unlinkIfExists;
     const chunkSize = (internals && internals.chunkSize) || CONCAT_CHUNK_SIZE;
@@ -69,7 +69,7 @@ exports.concatMp3Files = async function concatMp3Files1(mp3Files, concatedMp3Fil
         mp3Files = [tempFile].concat(mp3Files.slice(chunkSize));
     }
 
-    // this is final concat into result file
+    // this is the final concat into the result file
     const isOK = await concatMp3FilesIntL(mp3Files, concatedMp3Filename);
     if (isOK) {
         tempFiles.forEach(file => unlinkIfExistsL(file));
