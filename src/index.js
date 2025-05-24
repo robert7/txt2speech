@@ -375,7 +375,19 @@ async function main(argv) {
 
 }
 
-main(process.argv);
+// Export functions for testing
+module.exports = {
+    fixLongLines,
+    addContentToResult,
+    parseVoice,
+    parseCommandLine,
+    importTxtFile
+};
+
+// Only run main if this file is executed directly
+if (require.main === module) {
+    main(process.argv);
+}
 
 
 
