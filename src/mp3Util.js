@@ -4,14 +4,14 @@ const
 
 const CONCAT_CHUNK_SIZE = 35;
 
-async function concatMp3FilesInt(mp3Files, concatedMp3Filename) {
+async function concatMp3FilesInt(mp3Files, concatenatedMp3Filename) {
     return new Promise((resolve, reject) => {
 
-        // console.log(`Concat ${mp3Files.join(',')} => ${concatedMp3Filename}`);
+        // console.log(`Concat ${mp3Files.join(',')} => ${concatenatedMp3Filename}`);
 
         // mp3 concat (using ffmpeg): https://www.npmjs.com/package/audioconcat
         audioconcat(mp3Files)
-            .concat(concatedMp3Filename)
+            .concat(concatenatedMp3Filename)
             .on('start', function(command) {
                 // console.log('ffmpeg process started:', command);
             })
@@ -21,7 +21,7 @@ async function concatMp3FilesInt(mp3Files, concatedMp3Filename) {
                 resolve(false);
             })
             .on('end', function() {
-                // console.log(`Audio created ${concatedMp3Filename}`);
+                // console.log(`Audio created ${concatenatedMp3Filename}`);
                 resolve(true);
             });
     });
@@ -38,12 +38,12 @@ function unlinkIfExists(filename) {
 /**
  * Concat passed mp3 files into a result file.
  * @param mp3Files Array with mp3's to merge
- * @param concatedMp3Filename Name for concatenated mp3
+ * @param concatenatedMp3Filename Name for concatenated mp3
  * @param internals Allows replace callbacks for easier testing; not used for normal calls.
  *
  * @return promise resolves to true on OK, and to false on failure
  */
-exports.concatMp3Files = async function concatMp3Files1(mp3Files, concatedMp3Filename, internals) {
+exports.concatMp3Files = async function concatMp3Files1(mp3Files, concatenatedMp3Filename, internals) {
 
     // a bit weird, but this makes function testable
     const concatMp3FilesIntL = (internals && internals.concatMp3FilesInt) || concatMp3FilesInt;
@@ -70,7 +70,7 @@ exports.concatMp3Files = async function concatMp3Files1(mp3Files, concatedMp3Fil
     }
 
     // this is the final concat into the result file
-    const isOK = await concatMp3FilesIntL(mp3Files, concatedMp3Filename);
+    const isOK = await concatMp3FilesIntL(mp3Files, concatenatedMp3Filename);
     if (isOK) {
         tempFiles.forEach(file => unlinkIfExistsL(file));
     }
